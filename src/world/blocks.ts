@@ -1,4 +1,4 @@
-/** Block ids. Air is 0 so a fresh chunk buffer is empty. */
+/** Block ids. Air is 0 so a fresh chunk buffer is empty. Do not renumber these. */
 export const AIR = 0;
 export const GRASS = 1;
 export const DIRT = 2;
@@ -12,6 +12,34 @@ export const LEAVES = 8;
 export const GRAVEL = 9;
 /** Placeholder light source for M4. The generator does not place it. */
 export const TORCH = 10;
+
+/**
+ * Stable names for the block ids above. Content JSON may use the name or the
+ * number. The numeric values are the constants in this file.
+ */
+export const BLOCK_IDS = Object.freeze({
+  air: AIR,
+  grass: GRASS,
+  dirt: DIRT,
+  stone: STONE,
+  sand: SAND,
+  water: WATER,
+  snow: SNOW,
+  log: LOG,
+  leaves: LEAVES,
+  gravel: GRAVEL,
+  torch: TORCH,
+} as const);
+
+export type BlockName = keyof typeof BLOCK_IDS;
+
+/**
+ * Inclusive per-block light scale. 0 is unlit, 15 is full sunlight.
+ * Content spawn rules use the same integers.
+ */
+export const LIGHT_MIN = 0;
+export const LIGHT_MAX = 15;
+export const LIGHT_SCALE = Object.freeze({ min: LIGHT_MIN, max: LIGHT_MAX } as const);
 
 export interface FaceColors {
   top: string;
