@@ -4,14 +4,52 @@
   "kind": "mob",
   "health": 6,
   "speed": 2.2,
-  "size": { "width": 0.5, "height": 0.55, "depth": 0.7 },
+  "size": {
+    "width": 0.5,
+    "height": 0.55,
+    "depth": 0.7
+  },
   "flees": true,
-  "drops": [{ "block": "grass", "min": 1, "max": 1, "chance": 0.4 }],
+  "drops": [
+    {
+      "block": "grass",
+      "min": 1,
+      "max": 1,
+      "chance": 0.4
+    }
+  ],
   "spawn": {
-    "biomes": ["plains"],
+    "biomes": [
+      "plains"
+    ],
     "minLight": 9,
     "maxLight": 15,
     "weight": 10,
-    "pack": [2, 4]
+    "pack": [
+      2,
+      4
+    ]
+  },
+  "sprite": {
+    "colors": [
+      "#8a5a32",
+      "#f3e2c4",
+      "#1c140f",
+      "#e7a0aa"
+    ],
+    "rows": [
+      "............",
+      "....1111....",
+      "...111111...",
+      "...132111...",
+      "..11111111..",
+      "..10000011..",
+      "..10000001..",
+      "...100001...",
+      "....11.11...",
+      "....1...1...",
+      "............",
+      "............"
+    ]
   }
 }

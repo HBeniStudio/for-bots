@@ -36,6 +36,13 @@ export interface Body {
   vy: number;
   vz: number;
   onGround: boolean;
+  /**
+   * Full extents in blocks. Omitted fields use the player size, so existing
+   * bodies keep the original collider.
+   */
+  width?: number;
+  depth?: number;
+  height?: number;
 }
 
 export interface VoxelQuery {
@@ -57,13 +64,16 @@ export function isSolid(id: number): boolean {
 }
 
 export function bodyAabb(body: Body): Aabb {
+  const halfW = (body.width ?? PLAYER_WIDTH) / 2;
+  const halfD = (body.depth ?? PLAYER_WIDTH) / 2;
+  const height = body.height ?? PLAYER_HEIGHT;
   return {
-    minX: body.x - PLAYER_HALF,
-    maxX: body.x + PLAYER_HALF,
+    minX: body.x - halfW,
+    maxX: body.x + halfW,
     minY: body.y,
-    maxY: body.y + PLAYER_HEIGHT,
-    minZ: body.z - PLAYER_HALF,
-    maxZ: body.z + PLAYER_HALF,
+    maxY: body.y + height,
+    minZ: body.z - halfD,
+    maxZ: body.z + halfD,
   };
 }
 
@@ -160,12 +170,14 @@ export function stepBody(
   wishX: number,
   wishZ: number,
   jump: boolean,
+  speed = WALK_SPEED,
 ): void {
   if (!Number.isFinite(dt) || dt <= 0) return;
   const len = Math.hypot(wishX, wishZ);
-  if (len > 1e-8) {
-    body.vx = (wishX / len) * WALK_SPEED;
-    body.vz = (wishZ / len) * WALK_SPEED;
+  const pace = speed > 0 ? speed : 0;
+  if (len > 1e-8 && pace > 0) {
+    body.vx = (wishX / len) * pace;
+    body.vz = (wishZ / len) * pace;
   } else {
     body.vx = 0;
     body.vz = 0;

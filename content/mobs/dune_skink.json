@@ -4,14 +4,48 @@
   "kind": "mob",
   "health": 7,
   "speed": 2,
-  "size": { "width": 0.4, "height": 0.3, "depth": 0.9 },
+  "size": {
+    "width": 0.4,
+    "height": 0.3,
+    "depth": 0.9
+  },
   "flees": true,
-  "drops": [{ "block": "sand", "min": 1, "max": 2, "chance": 0.65 }],
+  "drops": [
+    {
+      "block": "sand",
+      "min": 1,
+      "max": 2,
+      "chance": 0.65
+    }
+  ],
   "spawn": {
-    "biomes": ["desert"],
+    "biomes": [
+      "desert"
+    ],
     "minLight": 11,
     "maxLight": 15,
     "weight": 8,
-    "pack": [1, 3]
+    "pack": [
+      1,
+      3
+    ]
+  },
+  "sprite": {
+    "colors": [
+      "#d2b15e",
+      "#8c6a30",
+      "#2a2114",
+      "#e07a32"
+    ],
+    "rows": [
+      "................",
+      "......00000.....",
+      "....000000000...",
+      "...00100010003..",
+      "..000000000000..",
+      "...0000000000...",
+      "....0.0..0.0....",
+      "................"
+    ]
   }
 }

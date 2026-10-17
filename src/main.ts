@@ -3,6 +3,7 @@ import { attachInput } from './player/input';
 import { breakTarget, drawTarget, pickBlock, placeOnTarget } from './player/interact';
 import { PLAYER_HEIGHT } from './player/physics';
 import { Player, drawPlayer, spawnPlayer } from './player/player';
+import { EntitySystem } from './entities/system';
 import { Camera } from './render/camera';
 import { collectDrawList, renderWorld, type DrawnBlock } from './render/renderer';
 import {
@@ -155,6 +156,7 @@ function main(): void {
     camera.follow(player.body.x, player.body.y + PLAYER_HEIGHT * 0.45, player.body.z);
 
     let timeSec = snapshot ? snapshot.timeSec : 0;
+    const entities = new EntitySystem(player, { time: timeSec });
     const persist = (): void => {
       writeSnapshot(store, {
         seed: world.seed,
@@ -233,6 +235,7 @@ function main(): void {
       }
 
       player.update(dt, world, control.forward, control.strafe, control.jump);
+      entities.update(dt, world);
       camera.follow(player.body.x, player.body.y + PLAYER_HEIGHT * 0.45, player.body.z);
 
       const barSlot = hotbar.slotAt(control.pointerX, control.pointerY, camera.screenW, camera.screenH);
@@ -279,6 +282,7 @@ function main(): void {
             z: player.body.z,
             draw: (drawCtx) => drawPlayer(drawCtx, camera, player),
           },
+          ...entities.sprites(camera),
         ],
         timeSec,
       );

@@ -4,19 +4,59 @@
   "kind": "enemy",
   "health": 10,
   "speed": 2.4,
-  "size": { "width": 0.9, "height": 0.45, "depth": 1.1 },
+  "size": {
+    "width": 0.9,
+    "height": 0.45,
+    "depth": 1.1
+  },
   "damage": 4,
   "attackRange": 1.6,
   "aggroRange": 11,
   "drops": [
-    { "block": "sand", "min": 1, "max": 2, "chance": 1 },
-    { "block": "gravel", "min": 1, "max": 1, "chance": 0.25 }
+    {
+      "block": "sand",
+      "min": 1,
+      "max": 2,
+      "chance": 1
+    },
+    {
+      "block": "gravel",
+      "min": 1,
+      "max": 1,
+      "chance": 0.25
+    }
   ],
   "spawn": {
-    "biomes": ["desert"],
+    "biomes": [
+      "desert"
+    ],
     "minLight": 10,
     "maxLight": 15,
     "weight": 4,
-    "pack": [1, 2]
+    "pack": [
+      1,
+      2
+    ]
+  },
+  "sprite": {
+    "colors": [
+      "#e6b63c",
+      "#a86b12",
+      "#2a1a08",
+      "#f6e7a4",
+      "#d64532"
+    ],
+    "rows": [
+      "................",
+      ".............4..",
+      "....0000.....1..",
+      "...0000000...1..",
+      "..020000020001..",
+      ".000000000001...",
+      "..000000000.....",
+      "...00....00.....",
+      "...1......1.....",
+      "................"
+    ]
   }
 }

@@ -3,6 +3,9 @@
  * `content/**\/*.json` is inlined into the single-file build. A missing or empty
  * `content/` directory loads as an empty catalog; nothing is fetched at runtime.
  *
+ * Schema version is {@link SCHEMA_VERSION}. Version 1 is the original contract.
+ * Version 2 adds an optional `sprite`. Files that omit `sprite` stay valid.
+ *
  * `kind` is `"mob"` (passive), `"enemy"` (hostile), or `"boss"`.
  * Refer to frozen ids by name or number:
  *   blocks — air 0, grass 1, dirt 2, stone 3, sand 4, water 5, snow 6,
@@ -33,6 +36,10 @@
  * and `aggroRange` (attackRange ≤ range ≤ 64), all in blocks.
  * Boss adds `phases`: 1–8 of { belowHealth, speed, damage }. `belowHealth` is the
  * fraction of max health where that phase starts, in (0, 1), strictly decreasing.
+ * sprite   optional { colors, rows } pixel art.
+ *          colors: 1–10 `#rrggbb` strings.
+ *          rows: 1–16 strings of equal length 1–16.
+ *          `.` is transparent; `0`–`9` indexes `colors`.
  * Unknown fields are rejected.
  *
  * @example mob
@@ -57,6 +64,13 @@
 
 import { BLOCK_IDS, LIGHT_MAX, LIGHT_MIN, type BlockName } from '../world/blocks';
 import { BIOME_IDS, type BiomeName } from '../world/gen/biomes';
+
+/**
+ * Content schema version.
+ * 1 — creature contract without sprites.
+ * 2 — optional `sprite` pixel art. Omitting it is still valid.
+ */
+export const SCHEMA_VERSION = 2;
 
 export { BIOME_IDS, type BiomeName } from '../world/gen/biomes';
 export { BLOCK_IDS, LIGHT_MAX, LIGHT_MIN, LIGHT_SCALE, type BlockName } from '../world/blocks';
@@ -85,6 +99,12 @@ export interface Size {
   width: number;
   height: number;
   depth: number;
+}
+
+/** Small pixel image. `rows[y][x]` is `.` or an index into {@link colors}. */
+export interface SpriteDef {
+  colors: readonly string[];
+  rows: readonly string[];
 }
 
 export interface Drop {
@@ -121,6 +141,7 @@ export interface MobDef {
   drops: readonly Drop[];
   flees: boolean;
   spawn: PackSpawn;
+  sprite?: SpriteDef;
 }
 
 export interface EnemyDef {
@@ -135,6 +156,7 @@ export interface EnemyDef {
   attackRange: number;
   aggroRange: number;
   spawn: PackSpawn;
+  sprite?: SpriteDef;
 }
 
 export interface BossDef {
@@ -150,6 +172,7 @@ export interface BossDef {
   aggroRange: number;
   phases: readonly BossPhase[];
   spawn: SpawnCommon;
+  sprite?: SpriteDef;
 }
 
 export type CreatureDef = MobDef | EnemyDef | BossDef;
@@ -159,7 +182,7 @@ export type ValidationResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly errors: readonly string[] };
 
-const SHARED_FIELDS = ['id', 'name', 'kind', 'health', 'speed', 'size', 'drops', 'spawn'] as const;
+const SHARED_FIELDS = ['id', 'name', 'kind', 'health', 'speed', 'size', 'drops', 'spawn', 'sprite'] as const;
 const COMBAT_FIELDS = ['damage', 'attackRange', 'aggroRange'] as const;
 
 function fail(errors: readonly string[]): ValidationResult<never> {
@@ -493,6 +516,73 @@ interface Shared {
   drops: readonly Drop[];
 }
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function readSprite(value: unknown, errors: string[]): SpriteDef | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) {
+    errors.push('sprite: expected { colors, rows }');
+    return undefined;
+  }
+  rejectUnknown(value, ['colors', 'rows'], 'sprite', errors);
+  const before = errors.length;
+
+  let colors: string[] | undefined;
+  if (!Array.isArray(value.colors) || value.colors.length < 1 || value.colors.length > 10) {
+    errors.push('sprite.colors: expected 1–10 hex colors');
+  } else {
+    const parsed: string[] = [];
+    let colorOk = true;
+    for (let i = 0; i < value.colors.length; i++) {
+      const color = value.colors[i];
+      if (typeof color !== 'string' || !HEX_COLOR.test(color)) {
+        errors.push(`sprite.colors[${i}]: expected #rrggbb`);
+        colorOk = false;
+        continue;
+      }
+      parsed.push(color.toLowerCase());
+    }
+    if (colorOk) colors = parsed;
+  }
+
+  let rows: string[] | undefined;
+  if (!Array.isArray(value.rows) || value.rows.length < 1 || value.rows.length > 16) {
+    errors.push('sprite.rows: expected 1–16 rows');
+  } else if (colors) {
+    const parsed: string[] = [];
+    let width = -1;
+    let rowOk = true;
+    for (let r = 0; r < value.rows.length; r++) {
+      const row = value.rows[r];
+      if (typeof row !== 'string' || row.length < 1 || row.length > 16) {
+        errors.push(`sprite.rows[${r}]: expected a string of length 1–16`);
+        rowOk = false;
+        continue;
+      }
+      if (width < 0) width = row.length;
+      else if (row.length !== width) {
+        errors.push(`sprite.rows[${r}]: expected length ${width}`);
+        rowOk = false;
+      }
+      for (let c = 0; c < row.length; c++) {
+        const ch = row.charAt(c);
+        if (ch === '.') continue;
+        const index = ch.charCodeAt(0) - 48;
+        if (index < 0 || index > 9 || index >= colors.length) {
+          errors.push(`sprite.rows[${r}]: unknown pixel "${ch}"`);
+          rowOk = false;
+          break;
+        }
+      }
+      parsed.push(row);
+    }
+    if (rowOk) rows = parsed;
+  }
+
+  if (errors.length > before || !colors || !rows) return undefined;
+  return { colors, rows };
+}
+
 function readShared(value: Record<string, unknown>, errors: string[]): Shared | undefined {
   const id = readId(value.id, errors);
   const name = readName(value.name, errors);
@@ -521,27 +611,31 @@ export function validateCreature(value: unknown): ValidationResult<CreatureDef> 
 
   const shared = readShared(value, errors);
   const spawn = readSpawn(value.spawn, kind, errors);
+  const sprite = readSprite(value.sprite, errors);
 
   if (kind === 'mob') {
     if (typeof value.flees !== 'boolean') errors.push('flees: expected a boolean');
     if (errors.length > 0 || !shared || !spawn || typeof value.flees !== 'boolean' || !('pack' in spawn)) {
       return fail(errors);
     }
-    return {
-      ok: true,
-      value: { ...shared, kind, flees: value.flees, spawn },
-    };
+    const mob: MobDef = { ...shared, kind, flees: value.flees, spawn };
+    if (sprite) mob.sprite = sprite;
+    return { ok: true, value: mob };
   }
 
   const combat = readCombat(value, errors);
   if (kind === 'enemy') {
     if (errors.length > 0 || !shared || !spawn || !combat || !('pack' in spawn)) return fail(errors);
-    return { ok: true, value: { ...shared, kind, ...combat, spawn } };
+    const enemy: EnemyDef = { ...shared, kind, ...combat, spawn };
+    if (sprite) enemy.sprite = sprite;
+    return { ok: true, value: enemy };
   }
 
   const phases = readPhases(value.phases, errors);
   if (errors.length > 0 || !shared || !spawn || !combat || !phases || 'pack' in spawn) return fail(errors);
-  return { ok: true, value: { ...shared, kind, ...combat, phases, spawn } };
+  const boss: BossDef = { ...shared, kind, ...combat, phases, spawn };
+  if (sprite) boss.sprite = sprite;
+  return { ok: true, value: boss };
 }
 
 /** Validate one creature or an array of them, in file order. */
