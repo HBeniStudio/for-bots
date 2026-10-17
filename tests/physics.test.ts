@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Camera } from '../src/render/camera';
-import { AIR, DIRT, STONE } from '../src/world/blocks';
+import { AIR, DIRT, STONE, WATER } from '../src/world/blocks';
 import { World } from '../src/world/world';
 import { breakTarget, canPlaceAt, pickBlock, placeOnTarget } from '../src/player/interact';
 import { spawnPlayer, wishVector } from '../src/player/player';
@@ -190,6 +190,21 @@ describe('building', () => {
     world.setBlock(1, 6, 1, DIRT);
     const center = camera.worldToScreen(0.5, 6, 0.5);
     expect(pickBlock(camera, world, center.x, center.y)).toEqual({ x: 1, y: 6, z: 1, face: 'top' });
+  });
+});
+
+describe('water', () => {
+  it('sinks through water and lands on the floor beneath', () => {
+    const world = new World(1);
+    world.setBlock(0, 2, 0, STONE);
+    world.setBlock(0, 4, 0, WATER);
+    world.setBlock(0, 5, 0, WATER);
+    const body = bodyAt(0.5, 8, 0.5);
+    for (let i = 0; i < 240; i++) stepBody(body, world, 1 / 60, 0, 0, false);
+    expect(overlapsSolid(world, body)).toBe(false);
+    expect(body.onGround).toBe(true);
+    expect(body.y).toBeCloseTo(3, 3);
+    expect(body.y).toBeLessThan(4);
   });
 });
 

@@ -1,10 +1,24 @@
-import { DIRT, FACE_COLORS, GRASS, LEAVES, LOG, SAND, SNOW, STONE, TORCH, WATER, type FaceColors } from '../world/blocks';
+import {
+  DIRT,
+  FACE_COLORS,
+  GRAVEL,
+  GRASS,
+  LEAVES,
+  LOG,
+  SAND,
+  SNOW,
+  STONE,
+  TORCH,
+  WATER,
+  type FaceColors,
+} from '../world/blocks';
 
-export const SLOT_COUNT = 9;
+/** Keys 1–9 select the first nine. Key 0 selects the last slot (gravel). */
+export const HOTBAR_IDS: readonly number[] = [GRASS, DIRT, STONE, SAND, WATER, SNOW, LOG, LEAVES, TORCH, GRAVEL];
 
-export const HOTBAR_IDS: readonly number[] = [GRASS, DIRT, STONE, SAND, WATER, SNOW, LOG, LEAVES, TORCH];
+export const SLOT_COUNT = HOTBAR_IDS.length;
 
-const LABELS = ['Grass', 'Dirt', 'Stone', 'Sand', 'Water', 'Snow', 'Log', 'Leaves', 'Torch'] as const;
+const LABELS = ['Grass', 'Dirt', 'Stone', 'Sand', 'Water', 'Snow', 'Log', 'Leaves', 'Torch', 'Gravel'] as const;
 
 const SLOT = 48;
 const GAP = 6;

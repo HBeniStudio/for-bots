@@ -1,9 +1,11 @@
 import type { Entity, Vec3 } from '../entity/entity';
 import type { Camera } from '../render/camera';
+import { shadeFaceColor } from '../render/renderer';
 import type { FaceColors } from '../world/blocks';
 import { LEAVES, LOG } from '../world/blocks';
 import { CHUNK_Y } from '../world/chunk';
 import { SEA_LEVEL, columnAt } from '../world/gen/terrain';
+import { sampleLight, sunlightFactor, type ShadedFace } from '../world/light';
 import { World, worldToChunk } from '../world/world';
 import { bodyAabb, isSolid, stepBody, type Body, type VoxelQuery } from './physics';
 
@@ -180,6 +182,7 @@ function drawPart(
   y: number,
   z: number,
   part: Part,
+  tint: (hex: string, face: ShadedFace) => string,
 ): void {
   const x0 = x - part.w / 2;
   const x1 = x + part.w / 2;
@@ -191,22 +194,38 @@ function drawPart(
   fillFace(
     ctx,
     [s(x1, y1, z1), s(x1, y1, z0), s(x1, y0, z0), s(x1, y0, z1)],
-    part.colors.right,
+    tint(part.colors.right, 'right'),
   );
   fillFace(
     ctx,
     [s(x0, y1, z1), s(x1, y1, z1), s(x1, y0, z1), s(x0, y0, z1)],
-    part.colors.left,
+    tint(part.colors.left, 'left'),
   );
   fillFace(
     ctx,
     [s(x0, y1, z0), s(x1, y1, z0), s(x1, y1, z1), s(x0, y1, z1)],
-    part.colors.top,
+    tint(part.colors.top, 'top'),
   );
 }
 
-/** Iso character. Caller depth-sorts this draw against the world. */
-export function drawPlayer(ctx: CanvasRenderingContext2D, camera: Camera, player: Player): void {
+/**
+ * Iso character. Caller depth-sorts this draw against the world.
+ * With a world, the body uses the same light and night tint as the blocks
+ * around the torso, so the player darkens after sunset and warms near a torch.
+ */
+export function drawPlayer(
+  ctx: CanvasRenderingContext2D,
+  camera: Camera,
+  player: Player,
+  world?: World,
+  timeSec = 0,
+): void {
   const { x, y, z } = player.body;
-  for (const part of PARTS) drawPart(ctx, camera, x, y, z, part);
+  const sun = sunlightFactor(timeSec);
+  let tint: (hex: string, face: ShadedFace) => string = (hex) => hex;
+  if (world) {
+    const lit = sampleLight(world, Math.floor(x), Math.floor(y + 1), Math.floor(z), sun);
+    tint = (hex, face) => shadeFaceColor(hex, lit.combined, face, sun, lit.block);
+  }
+  for (const part of PARTS) drawPart(ctx, camera, x, y, z, part, tint);
 }

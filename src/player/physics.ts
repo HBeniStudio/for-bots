@@ -1,4 +1,4 @@
-import { AIR } from '../world/blocks';
+import { AIR, WATER } from '../world/blocks';
 import { CHUNK_Y } from '../world/chunk';
 
 /** Horizontal size. Narrow enough to walk through a one-block gap. */
@@ -58,9 +58,12 @@ export interface Aabb {
   maxZ: number;
 }
 
-/** Every block except air stops the player, including water (there is no swim). */
+/**
+ * Blocks the body can stand on. Water is not a floor: the body sinks through
+ * it and lands on the first solid block underneath. There is no swim.
+ */
 export function isSolid(id: number): boolean {
-  return id !== AIR;
+  return id !== AIR && id !== WATER;
 }
 
 export function bodyAabb(body: Body): Aabb {

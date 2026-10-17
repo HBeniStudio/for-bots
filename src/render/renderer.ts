@@ -4,6 +4,7 @@ import { exposedFaceLight, sunlightFactor, type ShadedFace } from '../world/ligh
 import { World } from '../world/world';
 import { Camera } from './camera';
 import { compareBlockDepth, type IsoPoint } from './iso';
+import { isBlockOnScreen, paintCachedView } from './picture';
 
 export interface DrawnBlock {
   x: number;
@@ -85,39 +86,69 @@ function neighbor(world: World, chunk: Chunk, lx: number, y: number, lz: number)
   return world.getBlock(chunk.cx * CHUNK_X + lx, y, chunk.cz * CHUNK_Z + lz);
 }
 
-/**
- * Exposed blocks in visible chunks, already sorted back-to-front
- * (increasing x+z, then increasing y).
- */
-export function collectDrawList(world: World, camera: Camera): DrawnBlock[] {
+const meshes = new WeakMap<Chunk, { geom: number; blocks: DrawnBlock[] }>();
+const assembly = new WeakMap<World, { sig: string; list: DrawnBlock[] }>();
+const signatures = new WeakMap<readonly DrawnBlock[], string>();
+
+function chunkMesh(world: World, chunk: Chunk): readonly DrawnBlock[] {
+  const hit = meshes.get(chunk);
+  if (hit && hit.geom === chunk.geom) return hit.blocks;
+  const blocks = buildChunkMesh(world, chunk);
+  meshes.set(chunk, { geom: chunk.geom, blocks });
+  return blocks;
+}
+
+function buildChunkMesh(world: World, chunk: Chunk): DrawnBlock[] {
   const draw: DrawnBlock[] = [];
-  for (const chunk of world.loadedChunks()) {
-    if (!isChunkVisible(chunk, camera)) continue;
-    const baseX = chunk.cx * CHUNK_X;
-    const baseZ = chunk.cz * CHUNK_Z;
-    for (let y = 0; y <= chunk.maxY; y++) {
-      for (let lz = 0; lz < CHUNK_Z; lz++) {
-        for (let lx = 0; lx < CHUNK_X; lx++) {
-          const id = chunk.get(lx, y, lz);
-          if (id === AIR) continue;
-          const top = neighbor(world, chunk, lx, y + 1, lz) === AIR;
-          const left = neighbor(world, chunk, lx, y, lz + 1) === AIR;
-          const right = neighbor(world, chunk, lx + 1, y, lz) === AIR;
-          if (!top && !left && !right) continue;
-          draw.push({
-            x: baseX + lx,
-            y,
-            z: baseZ + lz,
-            id,
-            top,
-            left,
-            right,
-          });
-        }
+  const baseX = chunk.cx * CHUNK_X;
+  const baseZ = chunk.cz * CHUNK_Z;
+  for (let y = 0; y <= chunk.maxY; y++) {
+    for (let lz = 0; lz < CHUNK_Z; lz++) {
+      for (let lx = 0; lx < CHUNK_X; lx++) {
+        const id = chunk.get(lx, y, lz);
+        if (id === AIR) continue;
+        const top = neighbor(world, chunk, lx, y + 1, lz) === AIR;
+        const left = neighbor(world, chunk, lx, y, lz + 1) === AIR;
+        const right = neighbor(world, chunk, lx + 1, y, lz) === AIR;
+        if (!top && !left && !right) continue;
+        draw.push({
+          x: baseX + lx,
+          y,
+          z: baseZ + lz,
+          id,
+          top,
+          left,
+          right,
+        });
       }
     }
   }
+  return draw;
+}
+
+/**
+ * Exposed blocks in visible chunks, already sorted back-to-front
+ * (increasing x+z, then increasing y). Meshes are cached until a chunk's
+ * blocks change, and the merged list is cached until the visible set changes.
+ */
+export function collectDrawList(world: World, camera: Camera): DrawnBlock[] {
+  const visible: Chunk[] = [];
+  world.forEachChunk((chunk) => {
+    if (isChunkVisible(chunk, camera)) visible.push(chunk);
+  });
+  visible.sort((a, b) => a.cx - b.cx || a.cz - b.cz);
+  let sig = '';
+  for (const chunk of visible) sig += `${chunk.cx},${chunk.cz}:${chunk.geom}|`;
+  const cached = assembly.get(world);
+  if (cached && cached.sig === sig) return cached.list;
+  const draw: DrawnBlock[] = [];
+  for (const chunk of visible) {
+    const mesh = chunkMesh(world, chunk);
+    for (const block of mesh) draw.push(block);
+  }
   draw.sort(compareBlockDepth);
+  signatures.set(draw, sig);
+  assembly.set(world, { sig, list: draw });
   return draw;
 }
 
@@ -222,6 +253,27 @@ function drawBlock(
   }
 }
 
+function paintAll(
+  ctx: CanvasRenderingContext2D,
+  world: World,
+  camera: Camera,
+  blocks: readonly DrawnBlock[],
+  sprites: readonly DepthSprite[],
+  sun: number,
+): void {
+  const queue = sprites.length > 1 ? [...sprites].sort(compareBlockDepth) : sprites;
+  let spriteIndex = 0;
+  for (const block of blocks) {
+    if (!isBlockOnScreen(camera, block.x, block.y, block.z)) continue;
+    while (spriteIndex < queue.length && compareBlockDepth(queue[spriteIndex]!, block) < 0) {
+      queue[spriteIndex]!.draw(ctx);
+      spriteIndex += 1;
+    }
+    drawBlock(ctx, camera, world, block, sun);
+  }
+  for (; spriteIndex < queue.length; spriteIndex += 1) queue[spriteIndex]!.draw(ctx);
+}
+
 export function renderWorld(
   ctx: CanvasRenderingContext2D,
   world: World,
@@ -231,26 +283,29 @@ export function renderWorld(
   timeSec = 0,
 ): RenderStats {
   const sun = sunlightFactor(timeSec);
-  ctx.fillStyle = skyColor(sun);
+  const sky = skyColor(sun);
+  ctx.fillStyle = sky;
   ctx.fillRect(0, 0, camera.screenW, camera.screenH);
-  const queue = sprites.length > 1 ? [...sprites].sort(compareBlockDepth) : sprites;
-  let spriteIndex = 0;
-  for (const block of blocks) {
-    while (spriteIndex < queue.length && compareBlockDepth(queue[spriteIndex]!, block) < 0) {
-      queue[spriteIndex]!.draw(ctx);
-      spriteIndex += 1;
-    }
-    drawBlock(ctx, camera, world, block, sun);
-  }
-  for (; spriteIndex < queue.length; spriteIndex += 1) queue[spriteIndex]!.draw(ctx);
+  const cached = paintCachedView(
+    ctx,
+    camera,
+    blocks,
+    sprites,
+    sun,
+    signatures.get(blocks) ?? '',
+    world.editSerial,
+    world.seed,
+    sky,
+    (drawCtx, drawCamera, block, drawSun) => drawBlock(drawCtx, drawCamera, world, block, drawSun),
+  );
+  if (!cached) paintAll(ctx, world, camera, blocks, sprites, sun);
 
   let chunksDrawn = 0;
-  const loaded = world.loadedChunks();
-  for (const chunk of loaded) {
-    if (isChunkVisible(chunk, camera)) chunksDrawn++;
-  }
+  world.forEachChunk((chunk) => {
+    if (isChunkVisible(chunk, camera)) chunksDrawn += 1;
+  });
   return {
-    chunksLoaded: loaded.length,
+    chunksLoaded: world.chunkCount,
     chunksDrawn,
     blocksDrawn: blocks.length,
   };

@@ -171,4 +171,38 @@ describe('exposed faces and draw order', () => {
     // +z neighbor is grass, so the screen-left face is hidden; +x is open.
     expect(origin).toMatchObject({ top: true, left: false, right: true });
   });
+
+  it('reuses the draw list until a block changes', () => {
+    const world = new World();
+    world.setBlock(0, 0, 0, STONE);
+    const camera = new Camera();
+    camera.resize(640, 480);
+    camera.focusX = 8;
+    camera.focusZ = 8;
+    const first = collectDrawList(world, camera);
+    expect(collectDrawList(world, camera)).toBe(first);
+    world.setBlock(0, 1, 0, DIRT);
+    const next = collectDrawList(world, camera);
+    expect(next).not.toBe(first);
+    expect(next.some((block) => block.y === 1 && block.id === DIRT)).toBe(true);
+  });
+});
+
+describe('chunk streaming', () => {
+  it('drops distant chunks, keeps the ones asked to stay, and regenerates from the seed', () => {
+    const world = new World(4);
+    world.generateChunk(0, 0);
+    const far = world.generateChunk(9, 9);
+    world.generateChunk(20, -3);
+    const before = far.blocks.slice();
+    expect(before.some((id) => id !== AIR)).toBe(true);
+    world.setBlock(20 * 16 + 1, 6, -3 * 16 + 2, STONE);
+    const dropped = world.unloadBeyond(8, 8, 2, (cx, cz) => cx === 20 && cz === -3);
+    expect(dropped).toBe(1);
+    expect(world.getChunk(0, 0)).toBeDefined();
+    expect(world.getChunk(9, 9)).toBeUndefined();
+    expect(world.getChunk(20, -3)?.get(1, 6, 2)).toBe(STONE);
+    const again = world.generateChunk(9, 9);
+    expect(Array.from(again.blocks)).toEqual(Array.from(before));
+  });
 });

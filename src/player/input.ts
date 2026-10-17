@@ -1,4 +1,5 @@
 import type { Camera } from '../render/camera';
+import { SLOT_COUNT } from '../ui/hotbar';
 
 export interface ControlFrame {
   /** +1 toward the top of the screen. */
@@ -6,7 +7,7 @@ export interface ControlFrame {
   /** +1 toward the right of the screen. */
   strafe: number;
   jump: boolean;
-  /** 0–8 when a number key was pressed since the last read, else null. */
+  /** Hotbar index when a number key was pressed since the last read, else null. */
   slot: number | null;
   /** Hotbar steps from the wheel. Positive selects a higher slot. */
   wheel: number;
@@ -19,15 +20,14 @@ export interface ControlFrame {
 
 const DRAG_THRESHOLD = 4;
 
-function digitFromCode(code: string): number | null {
-  if (code.startsWith('Digit')) {
-    const n = Number(code.slice(5));
-    if (n >= 1 && n <= 9) return n - 1;
-  }
-  if (code.startsWith('Numpad')) {
-    const n = Number(code.slice(6));
-    if (n >= 1 && n <= 9) return n - 1;
-  }
+/** Number row and numpad. 1–9 are slots 0–8. 0 is the last slot. */
+export function slotIndexFromCode(code: string): number | null {
+  const prefixed = code.startsWith('Digit') ? code.slice(5) : code.startsWith('Numpad') ? code.slice(6) : '';
+  if (prefixed.length !== 1) return null;
+  const n = Number(prefixed);
+  if (!Number.isInteger(n)) return null;
+  if (n >= 1 && n <= 9) return n - 1;
+  if (n === 0) return SLOT_COUNT - 1;
   return null;
 }
 
@@ -68,7 +68,7 @@ export function attachInput(
   const onKeyDown = (event: KeyboardEvent): void => {
     down.add(event.code);
     if (event.code === 'Space' || event.code.startsWith('Arrow')) event.preventDefault();
-    const digit = digitFromCode(event.code);
+    const digit = slotIndexFromCode(event.code);
     if (digit !== null) slot = digit;
     if (event.code === 'Minus' || event.code === 'NumpadSubtract') {
       camera.zoomAt(camera.screenW / 2, camera.screenH / 2, 1 / 1.12);

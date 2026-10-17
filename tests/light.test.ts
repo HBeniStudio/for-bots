@@ -19,6 +19,7 @@ import {
   combineLight,
   exposedFaceLight,
   lightChunk,
+  sampleLight,
   skyLightAt,
   sunlightFactor,
 } from '../src/world/light';
@@ -238,10 +239,15 @@ describe('day and night', () => {
     world.setBlock(14, 20, 14, STONE);
     expect(exposedFaceLight(world, 14, 20, 14, 'top', 1).light).toBe(15);
     expect(exposedFaceLight(world, 14, 20, 14, 'top', 0).light).toBe(0);
-    // The +x face looks into a chunk that was never loaded.
+    // The +x face looks into a chunk that was never loaded. That missing
+    // neighbor is unlit, not open sky, so the edge does not glow at noon.
     world.setBlock(15, 10, 4, STONE);
-    expect(exposedFaceLight(world, 15, 10, 4, 'right', 1).light).toBe(15);
+    expect(world.getChunk(1, 0)).toBeUndefined();
+    expect(exposedFaceLight(world, 15, 10, 4, 'right', 1).light).toBe(0);
     expect(exposedFaceLight(world, 15, 10, 4, 'right', 0).light).toBe(0);
+    expect(sampleLight(world, 16, 10, 4, 1).combined).toBe(0);
+    expect(sampleLight(world, 4, CHUNK_Y, 4, 1).combined).toBe(LIGHT_MAX);
+    expect(sampleLight(world, 4, CHUNK_Y, 4, 0).combined).toBe(0);
     expect(skyColor(1)).toBe('#9fd4ef');
     expect(skyColor(0)).not.toBe(skyColor(1));
   });

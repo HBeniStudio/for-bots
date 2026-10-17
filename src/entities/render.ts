@@ -1,7 +1,15 @@
 import type { CreatureDef, SpriteDef } from '../content/schema';
 import { BLOCK_HEIGHT } from '../render/iso';
 import type { Camera } from '../render/camera';
+import { shadeFaceColor } from '../render/renderer';
 import type { Creature } from './creature';
+
+/** Light sampled at the creature. Omitted sprites stay at their base colors. */
+export interface SpriteLight {
+  sun: number;
+  light: number;
+  block: number;
+}
 
 const FALLBACK: Record<CreatureDef['kind'], SpriteDef> = {
   mob: {
@@ -24,9 +32,17 @@ export function spriteFor(def: CreatureDef): SpriteDef {
 }
 
 /** Billboard pixel sprite, feet planted on the world position. */
-export function drawCreature(ctx: CanvasRenderingContext2D, camera: Camera, creature: Creature): void {
+export function drawCreature(
+  ctx: CanvasRenderingContext2D,
+  camera: Camera,
+  creature: Creature,
+  spriteLight?: SpriteLight,
+): void {
   const sprite = spriteFor(creature.def);
   const rows = sprite.rows;
+  const palette = sprite.colors.map((color) =>
+    spriteLight ? shadeFaceColor(color, spriteLight.light, 'top', spriteLight.sun, spriteLight.block) : color,
+  );
   const cols = rows[0]?.length ?? 1;
   const rowCount = Math.max(1, rows.length);
   const worldPixels = creature.def.size.height * BLOCK_HEIGHT * camera.zoom;
@@ -52,7 +68,7 @@ export function drawCreature(ctx: CanvasRenderingContext2D, camera: Camera, crea
     for (let col = 0; col < cols; col++) {
       const ch = line.charCodeAt(col);
       if (ch === 46 || Number.isNaN(ch)) continue;
-      const color = sprite.colors[ch - 48];
+      const color = palette[ch - 48];
       if (!color) continue;
       ctx.fillStyle = creature.hurtTimer > 0 ? '#fff7f4' : color;
       ctx.fillRect(left + col * pixel, top + row * pixel, pixel + 0.25, pixel + 0.25);

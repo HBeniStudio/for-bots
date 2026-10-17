@@ -198,6 +198,7 @@ function main(): void {
     let last = performance.now();
     let marked = last;
     const clock = new SaveClock();
+    let unloadAccum = 0;
     let fps = 0;
     let fpsAccum = 0;
     let fpsFrames = 0;
@@ -236,6 +237,15 @@ function main(): void {
 
       player.update(dt, world, control.forward, control.strafe, control.jump);
       entities.update(dt, world);
+      if (world.serviceRelight()) dirty = true;
+      unloadAccum += dt;
+      if (unloadAccum >= 1.5) {
+        unloadAccum = 0;
+        const radius = viewChunkRadius(camera) + 3;
+        if (world.unloadBeyond(player.body.x, player.body.z, radius, (cx, cz) => diffs.has(cx, cz)) > 0) {
+          dirty = true;
+        }
+      }
       camera.follow(player.body.x, player.body.y + PLAYER_HEIGHT * 0.45, player.body.z);
 
       const barSlot = hotbar.slotAt(control.pointerX, control.pointerY, camera.screenW, camera.screenH);
@@ -280,7 +290,7 @@ function main(): void {
             x: player.body.x,
             y: player.body.y + PLAYER_HEIGHT * 0.5,
             z: player.body.z,
-            draw: (drawCtx) => drawPlayer(drawCtx, camera, player),
+            draw: (drawCtx) => drawPlayer(drawCtx, camera, player, world, timeSec),
           },
           ...entities.sprites(camera),
         ],
