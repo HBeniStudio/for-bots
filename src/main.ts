@@ -1,3 +1,4 @@
+import { loadContent } from './content/loader';
 import { CHUNK_X } from './world/chunk';
 import { World } from './world/world';
 import { Camera } from './render/camera';
@@ -54,6 +55,9 @@ function drawHud(
 }
 
 function main(): void {
+  // Creature JSON is checked at startup. An empty or missing content/ is valid.
+  loadContent();
+
   const canvas = document.querySelector<HTMLCanvasElement>('#game');
   if (!canvas) throw new Error('missing #game canvas');
   const ctx = canvas.getContext('2d');
@@ -119,7 +123,7 @@ function main(): void {
       );
     }
 
-    player.update(world, dt, control.forward, control.strafe, control.jump);
+    player.update(dt, world, control.forward, control.strafe, control.jump);
     camera.follow(player.body.x, player.body.y + PLAYER_HEIGHT * 0.45, player.body.z);
 
     const barSlot = hotbar.slotAt(control.pointerX, control.pointerY, camera.screenW, camera.screenH);

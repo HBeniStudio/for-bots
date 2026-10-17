@@ -1,11 +1,24 @@
 import { GRASS, SAND, SNOW } from '../blocks';
 
-export const PLAINS = 0;
-export const FOREST = 1;
-export const DESERT = 2;
-export const SNOW_BIOME = 3;
+/**
+ * Stable biome ids. Content JSON references these names or numbers.
+ * Biome "snow" is 3; block "snow" is a different id. Do not renumber these.
+ */
+export const BIOME_IDS = Object.freeze({
+  plains: 0,
+  forest: 1,
+  desert: 2,
+  snow: 3,
+} as const);
 
-export type BiomeId = typeof PLAINS | typeof FOREST | typeof DESERT | typeof SNOW_BIOME;
+export type BiomeName = keyof typeof BIOME_IDS;
+
+export const PLAINS = BIOME_IDS.plains;
+export const FOREST = BIOME_IDS.forest;
+export const DESERT = BIOME_IDS.desert;
+export const SNOW_BIOME = BIOME_IDS.snow;
+
+export type BiomeId = (typeof BIOME_IDS)[BiomeName];
 
 /**
  * Classify a climate sample. Temperature and moisture are independent noise

@@ -1,17 +1,44 @@
-/** Block ids. Air is 0 so a fresh chunk buffer is empty. */
-export const AIR = 0;
-export const GRASS = 1;
-export const DIRT = 2;
-export const STONE = 3;
-export const SAND = 4;
-export const WATER = 5;
-export const SNOW = 6;
+/**
+ * Stable block ids. Air is 0 so a fresh chunk buffer is empty.
+ * Content JSON references these names or numbers. Do not renumber them.
+ */
+export const BLOCK_IDS = Object.freeze({
+  air: 0,
+  grass: 1,
+  dirt: 2,
+  stone: 3,
+  sand: 4,
+  water: 5,
+  snow: 6,
+  log: 7,
+  leaves: 8,
+  gravel: 9,
+  torch: 10,
+} as const);
+
+export type BlockName = keyof typeof BLOCK_IDS;
+
+export const AIR = BLOCK_IDS.air;
+export const GRASS = BLOCK_IDS.grass;
+export const DIRT = BLOCK_IDS.dirt;
+export const STONE = BLOCK_IDS.stone;
+export const SAND = BLOCK_IDS.sand;
+export const WATER = BLOCK_IDS.water;
+export const SNOW = BLOCK_IDS.snow;
 /** Wood log. */
-export const LOG = 7;
-export const LEAVES = 8;
-export const GRAVEL = 9;
+export const LOG = BLOCK_IDS.log;
+export const LEAVES = BLOCK_IDS.leaves;
+export const GRAVEL = BLOCK_IDS.gravel;
 /** Placeholder light source for M4. The generator does not place it. */
-export const TORCH = 10;
+export const TORCH = BLOCK_IDS.torch;
+
+/**
+ * Inclusive per-block light scale. 0 is unlit, 15 is full sunlight.
+ * Content spawn rules use the same integers.
+ */
+export const LIGHT_SCALE = Object.freeze({ min: 0, max: 15 } as const);
+export const LIGHT_MIN = LIGHT_SCALE.min;
+export const LIGHT_MAX = LIGHT_SCALE.max;
 
 export interface FaceColors {
   top: string;

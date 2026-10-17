@@ -1,10 +1,11 @@
+import type { Entity, Vec3 } from '../entity/entity';
 import type { Camera } from '../render/camera';
 import type { FaceColors } from '../world/blocks';
 import { LEAVES, LOG } from '../world/blocks';
 import { CHUNK_Y } from '../world/chunk';
 import { SEA_LEVEL, columnAt } from '../world/gen/terrain';
 import { World, worldToChunk } from '../world/world';
-import { isSolid, stepBody, type Body } from './physics';
+import { bodyAabb, isSolid, stepBody, type Body, type VoxelQuery } from './physics';
 
 interface Part {
   /** Offset of the part's base from the feet. */
@@ -52,14 +53,68 @@ export function wishVector(forward: number, strafe: number): { x: number; z: num
   };
 }
 
-export class Player {
+export class Player implements Entity {
   readonly body: Body;
+  /** Feet position. Writes go through to {@link body}. */
+  readonly pos: Vec3;
+  /** Blocks per second. Writes go through to {@link body}. */
+  readonly vel: Vec3;
 
   constructor(x: number, y: number, z: number, onGround = false) {
-    this.body = { x, y, z, vx: 0, vy: 0, vz: 0, onGround };
+    const body: Body = { x, y, z, vx: 0, vy: 0, vz: 0, onGround };
+    this.body = body;
+    this.pos = {
+      get x() {
+        return body.x;
+      },
+      set x(v: number) {
+        body.x = v;
+      },
+      get y() {
+        return body.y;
+      },
+      set y(v: number) {
+        body.y = v;
+      },
+      get z() {
+        return body.z;
+      },
+      set z(v: number) {
+        body.z = v;
+      },
+    };
+    this.vel = {
+      get x() {
+        return body.vx;
+      },
+      set x(v: number) {
+        body.vx = v;
+      },
+      get y() {
+        return body.vy;
+      },
+      set y(v: number) {
+        body.vy = v;
+      },
+      get z() {
+        return body.vz;
+      },
+      set z(v: number) {
+        body.vz = v;
+      },
+    };
   }
 
-  update(world: World, dt: number, forward: number, strafe: number, jump: boolean): void {
+  /** Current collider. Same box {@link bodyAabb} reports for {@link body}. */
+  get aabb() {
+    return bodyAabb(this.body);
+  }
+
+  /**
+   * Integrate one tick. `forward`, `strafe`, and `jump` are the player's
+   * input for this tick; omitted input is idle, which matches {@link Entity}.
+   */
+  update(dt: number, world: VoxelQuery, forward = 0, strafe = 0, jump = false): void {
     const wish = wishVector(forward, strafe);
     stepBody(this.body, world, dt, wish.x, wish.z, jump);
   }
