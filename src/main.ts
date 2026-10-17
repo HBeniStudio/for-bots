@@ -1,46 +1,31 @@
-import { DIRT, GRASS, STONE } from './world/blocks';
-import { CHUNK_X, CHUNK_Z } from './world/chunk';
+import { CHUNK_X } from './world/chunk';
 import { World } from './world/world';
 import { Camera } from './render/camera';
 import { collectDrawList, renderWorld, type DrawnBlock } from './render/renderer';
 
-/** Flat 5×5 chunk pad (≥3×3) with grass, dirt, and stone. */
-function createFlatTestWorld(): World {
-  const world = new World();
-  const radius = 2;
-  const x0 = -radius * CHUNK_X;
-  const z0 = -radius * CHUNK_Z;
-  const x1 = (radius + 1) * CHUNK_X;
-  const z1 = (radius + 1) * CHUNK_Z;
+const WORLD_SEED = 0x150701;
 
-  for (let cz = -radius; cz <= radius; cz++) {
-    for (let cx = -radius; cx <= radius; cx++) world.ensureChunk(cx, cz);
-  }
+/** How many new chunks one animation frame may build. */
+const STREAM_BUDGET = 2;
 
-  for (let z = z0; z < z1; z++) {
-    for (let x = x0; x < x1; x++) {
-      world.setBlock(x, 0, z, STONE);
-      world.setBlock(x, 1, z, DIRT);
-      const onRoad = x === 8 || z === 8;
-      world.setBlock(x, 2, z, onRoad ? STONE : GRASS);
-    }
-  }
-
-  const layers: ReadonlyArray<{ y: number; r: number; id: number }> = [
-    { y: 3, r: 3, id: DIRT },
-    { y: 4, r: 2, id: DIRT },
-    { y: 5, r: 1, id: GRASS },
-    { y: 6, r: 0, id: STONE },
+/**
+ * Chunk radius that covers the screen, plus one chunk so a pan doesn't
+ * immediately show an unloaded edge. Capped so a zoom-out can't ask for
+ * the whole world in one go.
+ */
+function viewChunkRadius(camera: Camera): number {
+  let reach = 0;
+  const corners: ReadonlyArray<readonly [number, number]> = [
+    [0, 0],
+    [camera.screenW, 0],
+    [0, camera.screenH],
+    [camera.screenW, camera.screenH],
   ];
-  for (const layer of layers) {
-    for (let dz = -layer.r; dz <= layer.r; dz++) {
-      for (let dx = -layer.r; dx <= layer.r; dx++) {
-        world.setBlock(8 + dx, layer.y, 8 + dz, layer.id);
-      }
-    }
+  for (const [sx, sy] of corners) {
+    const p = camera.screenToWorld(sx, sy, 0);
+    reach = Math.max(reach, Math.abs(p.x - camera.focusX), Math.abs(p.z - camera.focusZ));
   }
-
-  return world;
+  return Math.min(8, Math.max(2, Math.ceil(reach / CHUNK_X) + 1));
 }
 
 function drawHud(
@@ -68,7 +53,7 @@ function main(): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('2d canvas unavailable');
 
-  const world = createFlatTestWorld();
+  const world = new World(WORLD_SEED);
   const camera = new Camera();
   const keys = new Set<string>();
 
@@ -131,6 +116,13 @@ function main(): void {
   window.addEventListener('resize', resize);
 
   resize();
+  // Fill the opening view, but stop after a few milliseconds so the first
+  // paint is not stuck behind a full neighborhood. The frame loop continues.
+  const warmStart = performance.now();
+  const warmRadius = viewChunkRadius(camera);
+  while (performance.now() - warmStart < 12) {
+    if (world.generateAround(camera.focusX, camera.focusZ, warmRadius, STREAM_BUDGET) === 0) break;
+  }
 
   let last = performance.now();
   let fps = 0;
@@ -158,13 +150,20 @@ function main(): void {
       camera.panPixels(forward / len, strafe / len, 480 * dt);
     }
 
+    const generated = world.generateAround(
+      camera.focusX,
+      camera.focusZ,
+      viewChunkRadius(camera),
+      STREAM_BUDGET,
+    );
+
     const viewChanged =
       camera.focusX !== listCameraX ||
       camera.focusZ !== listCameraZ ||
       camera.zoom !== listZoom ||
       camera.screenW !== listW ||
       camera.screenH !== listH;
-    if (viewChanged) {
+    if (viewChanged || generated > 0) {
       drawList = collectDrawList(world, camera);
       listCameraX = camera.focusX;
       listCameraZ = camera.focusZ;
