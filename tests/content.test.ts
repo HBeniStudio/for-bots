@@ -105,6 +105,7 @@ describe('creature schema', () => {
     expect(enemy.value.drops[0]).toEqual({ block: 'gravel', min: 1, max: 1, chance: 1 });
     expect(enemy.value.spawn.minLight).toBe(LIGHT_MIN);
     expect(boss.value.kind).toBe('boss');
+    if (boss.value.kind !== 'boss') return;
     expect(boss.value.phases).toEqual([{ belowHealth: 0.5, speed: 2.1, damage: 12 }]);
     expect(boss.value.spawn.biomes).toEqual(['snow']);
     expect(boss.value.drops).toEqual([]);
