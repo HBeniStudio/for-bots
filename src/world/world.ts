@@ -1,6 +1,7 @@
 import { AIR } from './blocks';
 import { CHUNK_X, CHUNK_Y, CHUNK_Z, Chunk } from './chunk';
 import { fillChunk } from './gen/terrain';
+import { lightChunk, refreshLighting } from './light';
 
 export interface ChunkCoord {
   cx: number;
@@ -50,6 +51,7 @@ export class World {
     if (this.generated.has(key)) return chunk;
     fillChunk(chunk, this.seed);
     this.generated.add(key);
+    lightChunk(this, cx, cz);
     return chunk;
   }
 
@@ -108,6 +110,10 @@ export class World {
     const bz = Math.floor(z);
     if (by < 0 || by >= CHUNK_Y) return;
     const { cx, cz, lx, lz } = worldToChunk(bx, bz);
-    this.ensureChunk(cx, cz).set(lx, by, lz, id);
+    const chunk = this.ensureChunk(cx, cz);
+    const previous = chunk.get(lx, by, lz);
+    if (previous === id) return;
+    chunk.set(lx, by, lz, id);
+    refreshLighting(this, bx, by, bz, previous, id);
   }
 }

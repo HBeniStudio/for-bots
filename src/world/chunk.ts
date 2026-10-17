@@ -9,6 +9,12 @@ export function blockIndex(x: number, y: number, z: number): number {
   return x + z * CHUNK_X + y * CHUNK_X * CHUNK_Z;
 }
 
+function clampNibble(level: number): number {
+  if (level <= 0) return 0;
+  if (level >= 15) return 15;
+  return level;
+}
+
 export function inChunkBounds(x: number, y: number, z: number): boolean {
   return (
     Number.isInteger(x) &&
@@ -27,13 +33,20 @@ export class Chunk {
   readonly cx: number;
   readonly cz: number;
   readonly blocks: Uint8Array;
+  /**
+   * Per-block light, one byte per cell. The high nibble is sunlight and the
+   * low nibble is block light (torches). Each nibble is a level 0–15.
+   */
+  readonly light: Uint8Array;
   /** Highest local y that holds a non-air block, or -1 when the chunk is empty. */
   private maxSolidY = -1;
 
   constructor(cx: number, cz: number) {
     this.cx = cx;
     this.cz = cz;
-    this.blocks = new Uint8Array(CHUNK_X * CHUNK_Z * CHUNK_Y);
+    const count = CHUNK_X * CHUNK_Z * CHUNK_Y;
+    this.blocks = new Uint8Array(count);
+    this.light = new Uint8Array(count);
   }
 
   get maxY(): number {
@@ -43,6 +56,28 @@ export class Chunk {
   get(x: number, y: number, z: number): number {
     if (!inChunkBounds(x, y, z)) return AIR;
     return this.blocks[blockIndex(x, y, z)]!;
+  }
+
+  getSkyLight(x: number, y: number, z: number): number {
+    if (!inChunkBounds(x, y, z)) return 0;
+    return this.light[blockIndex(x, y, z)]! >> 4;
+  }
+
+  setSkyLight(x: number, y: number, z: number, level: number): void {
+    if (!inChunkBounds(x, y, z)) return;
+    const i = blockIndex(x, y, z);
+    this.light[i] = (clampNibble(level) << 4) | (this.light[i]! & 0x0f);
+  }
+
+  getBlockLight(x: number, y: number, z: number): number {
+    if (!inChunkBounds(x, y, z)) return 0;
+    return this.light[blockIndex(x, y, z)]! & 0x0f;
+  }
+
+  setBlockLight(x: number, y: number, z: number, level: number): void {
+    if (!inChunkBounds(x, y, z)) return;
+    const i = blockIndex(x, y, z);
+    this.light[i] = (this.light[i]! & 0xf0) | clampNibble(level);
   }
 
   set(x: number, y: number, z: number, id: number): void {

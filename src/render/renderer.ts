@@ -1,5 +1,6 @@
-import { AIR, FACE_COLORS } from '../world/blocks';
+import { AIR, FACE_COLORS, LIGHT_MAX } from '../world/blocks';
 import { CHUNK_X, CHUNK_Y, CHUNK_Z, type Chunk } from '../world/chunk';
+import { exposedFaceLight, sunlightFactor, type ShadedFace } from '../world/light';
 import { World } from '../world/world';
 import { Camera } from './camera';
 import { compareBlockDepth, type IsoPoint } from './iso';
@@ -120,6 +121,43 @@ export function collectDrawList(world: World, camera: Camera): DrawnBlock[] {
   return draw;
 }
 
+/** Fixed per-face darkening on top of the block palette. Top stays the brightest. */
+export const FACE_SHADE = { top: 1, left: 0.9, right: 0.8 } as const;
+
+const DAY_SKY: readonly [number, number, number] = [0x9f, 0xd4, 0xef];
+const NIGHT_SKY: readonly [number, number, number] = [0x07, 0x0b, 0x16];
+const NIGHT_TINT: readonly [number, number, number] = [0.62, 0.7, 0.95];
+
+/** Sky backdrop. Noon matches the page background; midnight is near-black blue. */
+export function skyColor(sun: number): string {
+  return rgbHex(mixRgb(NIGHT_SKY, DAY_SKY, clamp01(sun)));
+}
+
+/**
+ * Block face color after light level, the fixed face bias, and the night tint.
+ * `blockLight` is the torch contribution inside `light`. A face lit only by a
+ * torch keeps its warm color after sunset.
+ */
+export function shadeFaceColor(
+  hex: string,
+  light: number,
+  face: ShadedFace,
+  sun = 1,
+  blockLight = 0,
+): string {
+  const [r, g, b] = parseHex(hex);
+  const level = clampLight(light) / LIGHT_MAX;
+  const gain = (0.05 + 0.95 * level) * FACE_SHADE[face];
+  const night = 1 - clamp01(sun);
+  const torchShare = light <= 0 ? 0 : Math.min(1, Math.max(0, blockLight) / light);
+  const tintMix = night * (1 - torchShare);
+  return rgbHex([
+    r * gain * (1 + (NIGHT_TINT[0] - 1) * tintMix),
+    g * gain * (1 + (NIGHT_TINT[1] - 1) * tintMix),
+    b * gain * (1 + (NIGHT_TINT[2] - 1) * tintMix),
+  ]);
+}
+
 function fillFace(ctx: CanvasRenderingContext2D, pts: readonly IsoPoint[], color: string): void {
   ctx.beginPath();
   ctx.moveTo(pts[0]!.x, pts[0]!.y);
@@ -132,10 +170,20 @@ function fillFace(ctx: CanvasRenderingContext2D, pts: readonly IsoPoint[], color
   ctx.stroke();
 }
 
-function drawBlock(ctx: CanvasRenderingContext2D, camera: Camera, block: DrawnBlock): void {
+function drawBlock(
+  ctx: CanvasRenderingContext2D,
+  camera: Camera,
+  world: World,
+  block: DrawnBlock,
+  sun: number,
+): void {
   const colors = FACE_COLORS[block.id];
   if (!colors) return;
   const { x, y, z } = block;
+  const paint = (face: ShadedFace, color: string): string => {
+    const lit = exposedFaceLight(world, x, y, z, face, sun);
+    return shadeFaceColor(color, lit.light, face, sun, lit.block);
+  };
   if (block.right) {
     fillFace(
       ctx,
@@ -145,7 +193,7 @@ function drawBlock(ctx: CanvasRenderingContext2D, camera: Camera, block: DrawnBl
         camera.worldToScreen(x + 1, y, z),
         camera.worldToScreen(x + 1, y, z + 1),
       ],
-      colors.right,
+      paint('right', colors.right),
     );
   }
   if (block.left) {
@@ -157,7 +205,7 @@ function drawBlock(ctx: CanvasRenderingContext2D, camera: Camera, block: DrawnBl
         camera.worldToScreen(x + 1, y, z + 1),
         camera.worldToScreen(x, y, z + 1),
       ],
-      colors.left,
+      paint('left', colors.left),
     );
   }
   if (block.top) {
@@ -169,7 +217,7 @@ function drawBlock(ctx: CanvasRenderingContext2D, camera: Camera, block: DrawnBl
         camera.worldToScreen(x + 1, y + 1, z + 1),
         camera.worldToScreen(x, y + 1, z + 1),
       ],
-      colors.top,
+      paint('top', colors.top),
     );
   }
 }
@@ -180,8 +228,11 @@ export function renderWorld(
   camera: Camera,
   blocks: readonly DrawnBlock[],
   sprites: readonly DepthSprite[] = [],
+  timeSec = 0,
 ): RenderStats {
-  ctx.clearRect(0, 0, camera.screenW, camera.screenH);
+  const sun = sunlightFactor(timeSec);
+  ctx.fillStyle = skyColor(sun);
+  ctx.fillRect(0, 0, camera.screenW, camera.screenH);
   const queue = sprites.length > 1 ? [...sprites].sort(compareBlockDepth) : sprites;
   let spriteIndex = 0;
   for (const block of blocks) {
@@ -189,7 +240,7 @@ export function renderWorld(
       queue[spriteIndex]!.draw(ctx);
       spriteIndex += 1;
     }
-    drawBlock(ctx, camera, block);
+    drawBlock(ctx, camera, world, block, sun);
   }
   for (; spriteIndex < queue.length; spriteIndex += 1) queue[spriteIndex]!.draw(ctx);
 
@@ -203,4 +254,41 @@ export function renderWorld(
     chunksDrawn,
     blocksDrawn: blocks.length,
   };
+}
+
+function parseHex(hex: string): [number, number, number] {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function mixRgb(
+  from: readonly [number, number, number],
+  to: readonly [number, number, number],
+  t: number,
+): [number, number, number] {
+  return [
+    from[0] + (to[0] - from[0]) * t,
+    from[1] + (to[1] - from[1]) * t,
+    from[2] + (to[2] - from[2]) * t,
+  ];
+}
+
+function rgbHex(rgb: readonly [number, number, number]): string {
+  const channel = (n: number): string => {
+    const byte = n <= 0 ? 0 : n >= 255 ? 255 : Math.round(n);
+    return byte.toString(16).padStart(2, '0');
+  };
+  return `#${channel(rgb[0])}${channel(rgb[1])}${channel(rgb[2])}`;
+}
+
+function clamp01(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (n >= 1) return 1;
+  return n;
+}
+
+function clampLight(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (n >= LIGHT_MAX) return LIGHT_MAX;
+  return n;
 }
