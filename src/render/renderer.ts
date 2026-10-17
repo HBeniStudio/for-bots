@@ -22,6 +22,14 @@ export interface RenderStats {
   blocksDrawn: number;
 }
 
+/** Something drawn in painter's order with the blocks, such as the player. */
+export interface DepthSprite {
+  x: number;
+  y: number;
+  z: number;
+  draw(ctx: CanvasRenderingContext2D): void;
+}
+
 export interface ExposedFaces {
   top: boolean;
   left: boolean;
@@ -171,9 +179,19 @@ export function renderWorld(
   world: World,
   camera: Camera,
   blocks: readonly DrawnBlock[],
+  sprites: readonly DepthSprite[] = [],
 ): RenderStats {
   ctx.clearRect(0, 0, camera.screenW, camera.screenH);
-  for (const block of blocks) drawBlock(ctx, camera, block);
+  const queue = sprites.length > 1 ? [...sprites].sort(compareBlockDepth) : sprites;
+  let spriteIndex = 0;
+  for (const block of blocks) {
+    while (spriteIndex < queue.length && compareBlockDepth(queue[spriteIndex]!, block) < 0) {
+      queue[spriteIndex]!.draw(ctx);
+      spriteIndex += 1;
+    }
+    drawBlock(ctx, camera, block);
+  }
+  for (; spriteIndex < queue.length; spriteIndex += 1) queue[spriteIndex]!.draw(ctx);
 
   let chunksDrawn = 0;
   const loaded = world.loadedChunks();
