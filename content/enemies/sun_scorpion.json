@@ -1,0 +1,22 @@
+{
+  "id": "sun_scorpion",
+  "name": "Sun Scorpion",
+  "kind": "enemy",
+  "health": 10,
+  "speed": 2.4,
+  "size": { "width": 0.9, "height": 0.45, "depth": 1.1 },
+  "damage": 4,
+  "attackRange": 1.6,
+  "aggroRange": 11,
+  "drops": [
+    { "block": "sand", "min": 1, "max": 2, "chance": 1 },
+    { "block": "gravel", "min": 1, "max": 1, "chance": 0.25 }
+  ],
+  "spawn": {
+    "biomes": ["desert"],
+    "minLight": 10,
+    "maxLight": 15,
+    "weight": 4,
+    "pack": [1, 2]
+  }
+}

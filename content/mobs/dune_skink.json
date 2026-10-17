@@ -1,0 +1,17 @@
+{
+  "id": "dune_skink",
+  "name": "Dune Skink",
+  "kind": "mob",
+  "health": 7,
+  "speed": 2,
+  "size": { "width": 0.4, "height": 0.3, "depth": 0.9 },
+  "flees": true,
+  "drops": [{ "block": "sand", "min": 1, "max": 2, "chance": 0.65 }],
+  "spawn": {
+    "biomes": ["desert"],
+    "minLight": 11,
+    "maxLight": 15,
+    "weight": 8,
+    "pack": [1, 3]
+  }
+}

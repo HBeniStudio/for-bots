@@ -1,0 +1,17 @@
+{
+  "id": "snow_pika",
+  "name": "Snow Pika",
+  "kind": "mob",
+  "health": 8,
+  "speed": 1.4,
+  "size": { "width": 0.45, "height": 0.4, "depth": 0.5 },
+  "flees": true,
+  "drops": [{ "block": "snow", "min": 1, "max": 2, "chance": 0.55 }],
+  "spawn": {
+    "biomes": ["snow"],
+    "minLight": 9,
+    "maxLight": 15,
+    "weight": 7,
+    "pack": [2, 4]
+  }
+}

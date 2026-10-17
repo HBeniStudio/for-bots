@@ -1,0 +1,25 @@
+{
+  "id": "briar_heart",
+  "name": "Briar Heart",
+  "kind": "boss",
+  "health": 180,
+  "speed": 1.1,
+  "size": { "width": 1.8, "height": 2.8, "depth": 1.8 },
+  "damage": 6,
+  "attackRange": 2.2,
+  "aggroRange": 18,
+  "phases": [
+    { "belowHealth": 0.66, "speed": 1.5, "damage": 9 },
+    { "belowHealth": 0.33, "speed": 2.1, "damage": 12 }
+  ],
+  "drops": [
+    { "block": "log", "min": 4, "max": 8, "chance": 1 },
+    { "block": "leaves", "min": 4, "max": 10, "chance": 1 }
+  ],
+  "spawn": {
+    "biomes": ["forest"],
+    "minLight": 0,
+    "maxLight": 6,
+    "weight": 1
+  }
+}

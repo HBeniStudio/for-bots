@@ -1,0 +1,17 @@
+{
+  "id": "meadow_hare",
+  "name": "Meadow Hare",
+  "kind": "mob",
+  "health": 6,
+  "speed": 2.2,
+  "size": { "width": 0.5, "height": 0.55, "depth": 0.7 },
+  "flees": true,
+  "drops": [{ "block": "grass", "min": 1, "max": 1, "chance": 0.4 }],
+  "spawn": {
+    "biomes": ["plains"],
+    "minLight": 9,
+    "maxLight": 15,
+    "weight": 10,
+    "pack": [2, 4]
+  }
+}

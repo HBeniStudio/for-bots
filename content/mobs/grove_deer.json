@@ -1,0 +1,17 @@
+{
+  "id": "grove_deer",
+  "name": "Grove Deer",
+  "kind": "mob",
+  "health": 12,
+  "speed": 1.7,
+  "size": { "width": 0.9, "height": 1.7, "depth": 1.4 },
+  "flees": true,
+  "drops": [{ "block": "leaves", "min": 1, "max": 2, "chance": 0.5 }],
+  "spawn": {
+    "biomes": ["forest"],
+    "minLight": 8,
+    "maxLight": 15,
+    "weight": 6,
+    "pack": [1, 3]
+  }
+}

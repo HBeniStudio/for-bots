@@ -1,0 +1,22 @@
+{
+  "id": "thorn_crawler",
+  "name": "Thorn Crawler",
+  "kind": "enemy",
+  "health": 16,
+  "speed": 1.9,
+  "size": { "width": 0.9, "height": 0.7, "depth": 1.2 },
+  "damage": 3,
+  "attackRange": 1.2,
+  "aggroRange": 13,
+  "drops": [
+    { "block": "log", "min": 1, "max": 1, "chance": 0.4 },
+    { "block": "leaves", "min": 1, "max": 2, "chance": 0.75 }
+  ],
+  "spawn": {
+    "biomes": ["forest"],
+    "minLight": 0,
+    "maxLight": 7,
+    "weight": 5,
+    "pack": [1, 3]
+  }
+}
