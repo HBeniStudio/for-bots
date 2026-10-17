@@ -40,6 +40,11 @@ export class Chunk {
   readonly light: Uint8Array;
   /** Highest local y that holds a non-air block, or -1 when the chunk is empty. */
   private maxSolidY = -1;
+  /**
+   * Bumps when a block in this chunk changes. The renderer caches meshes
+   * against this value. Starts at 1 so a fresh chunk is not confused with 0.
+   */
+  geom = 1;
 
   constructor(cx: number, cz: number) {
     this.cx = cx;
@@ -51,6 +56,11 @@ export class Chunk {
 
   get maxY(): number {
     return this.maxSolidY;
+  }
+
+  /** Mark cached render data stale without changing blocks. */
+  touch(): void {
+    this.geom += 1;
   }
 
   get(x: number, y: number, z: number): number {
@@ -88,6 +98,7 @@ export class Chunk {
     } else if (y === this.maxSolidY) {
       this.maxSolidY = this.scanMaxSolidY();
     }
+    this.touch();
   }
 
   private scanMaxSolidY(): number {

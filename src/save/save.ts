@@ -93,6 +93,10 @@ export class ChunkDiffs {
     cells.set(index, stored);
   }
 
+  has(cx: number, cz: number): boolean {
+    return this.chunks.has(chunkKey(cx, cz));
+  }
+
   toChunks(): SaveChunk[] {
     const chunks: SaveChunk[] = [];
     for (const dirty of this.chunks.values()) {

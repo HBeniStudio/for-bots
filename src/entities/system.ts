@@ -255,12 +255,24 @@ export class EntitySystem {
   /** Depth-sorted sprites for the iso renderer, including a player health bar. */
   sprites(camera: Camera): DepthSprite[] {
     const sprites: DepthSprite[] = [];
+    const world = this.world;
+    const sun = sunlightFactor(this.clock);
     for (const creature of this.list) {
+      const lit = world
+        ? sampleLight(
+            world,
+            Math.floor(creature.pos.x),
+            Math.floor(creature.pos.y + creature.def.size.height * 0.5),
+            Math.floor(creature.pos.z),
+            sun,
+          )
+        : null;
+      const spriteLight = lit ? { sun, light: lit.combined, block: lit.block } : undefined;
       sprites.push({
         x: creature.pos.x,
         y: creature.pos.y + creature.def.size.height * 0.5,
         z: creature.pos.z,
-        draw: (ctx) => drawCreature(ctx, camera, creature),
+        draw: (ctx) => drawCreature(ctx, camera, creature, spriteLight),
       });
     }
     if (this.playerHealth < PLAYER_MAX_HEALTH || !this.playerAlive) {

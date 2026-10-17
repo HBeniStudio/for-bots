@@ -79,15 +79,19 @@ export interface SampledLight {
   combined: number;
 }
 
+const UNLIT: SampledLight = { sky: 0, block: 0, combined: 0 };
+
 /**
- * Stored light at a cell. Above the world, and chunks that are not loaded yet,
- * count as open sky so a face aimed off the loaded edge is not black at noon.
- * Propagation never writes those cells; this is only the value a face samples.
+ * Stored light at a cell. Above the world is open sky, so the top of the
+ * column stays bright at noon. A chunk that is not loaded yet is unlit:
+ * a face aimed off the loaded edge must not glow as if the missing neighbor
+ * were sunlight. Propagation never writes those cells.
  */
 export function sampleLight(world: LightVolume, x: number, y: number, z: number, sun: number): SampledLight {
-  if (y < 0) return { sky: 0, block: 0, combined: 0 };
+  if (y >= CHUNK_Y) return openSky(sun);
+  if (y < 0) return UNLIT;
   const cell = cellAt(world, x, y, z);
-  if (!cell) return openSky(sun);
+  if (!cell) return UNLIT;
   const sky = cell.chunk.getSkyLight(cell.lx, cell.y, cell.lz);
   const block = cell.chunk.getBlockLight(cell.lx, cell.y, cell.lz);
   return { sky, block, combined: combineLight(block, sky, sun) };
@@ -138,9 +142,9 @@ export function lightChunk(world: LightVolume, cx: number, cz: number): void {
 
   const baseX = cx * CHUNK_X;
   const baseZ = cz * CHUNK_Z;
-  const skySeeds: Pos[] = [];
   const blockSeeds: Pos[] = [];
 
+  resetQueue();
   for (let lz = 0; lz < CHUNK_Z; lz++) {
     for (let lx = 0; lx < CHUNK_X; lx++) {
       const x = baseX + lx;
@@ -150,7 +154,7 @@ export function lightChunk(world: LightVolume, cx: number, cz: number): void {
         const sky = column[y]!;
         if (sky > 0) {
           chunk.setSkyLight(lx, y, lz, sky);
-          skySeeds.push({ x, y, z });
+          enqueue(x, y, z);
         }
         const emission = emittedAt(world, x, y, z);
         if (emission > 0) {
@@ -162,14 +166,22 @@ export function lightChunk(world: LightVolume, cx: number, cz: number): void {
   }
 
   for (let i = 0; i < CHUNK_X; i++) {
-    absorbEdge(world, baseX - 1, baseZ + i, skySeeds, blockSeeds);
-    absorbEdge(world, baseX + CHUNK_X, baseZ + i, skySeeds, blockSeeds);
-    absorbEdge(world, baseX + i, baseZ - 1, skySeeds, blockSeeds);
-    absorbEdge(world, baseX + i, baseZ + CHUNK_Z, skySeeds, blockSeeds);
+    absorbSky(world, baseX - 1, baseZ + i);
+    absorbSky(world, baseX + CHUNK_X, baseZ + i);
+    absorbSky(world, baseX + i, baseZ - 1);
+    absorbSky(world, baseX + i, baseZ + CHUNK_Z);
   }
+  propagateQueued(world, 'sky');
 
-  propagateAdd(world, 'sky', skySeeds);
-  propagateAdd(world, 'block', blockSeeds);
+  resetQueue();
+  for (const seed of blockSeeds) enqueue(seed.x, seed.y, seed.z);
+  for (let i = 0; i < CHUNK_X; i++) {
+    absorbBlock(world, baseX - 1, baseZ + i);
+    absorbBlock(world, baseX + CHUNK_X, baseZ + i);
+    absorbBlock(world, baseX + i, baseZ - 1);
+    absorbBlock(world, baseX + i, baseZ + CHUNK_Z);
+  }
+  propagateQueued(world, 'block');
 }
 
 /**
@@ -299,28 +311,53 @@ function propagateRemoveSky(world: LightVolume, queue: Removed[], cache: Map<str
   return reseed;
 }
 
-function propagateAdd(world: LightVolume, channel: 'sky' | 'block', seeds: readonly Pos[]): void {
-  const queue = seeds.slice();
+const qx: number[] = [];
+const qy: number[] = [];
+const qz: number[] = [];
+
+function resetQueue(): void {
+  qx.length = 0;
+  qy.length = 0;
+  qz.length = 0;
+}
+
+function enqueue(x: number, y: number, z: number): void {
+  qx.push(x);
+  qy.push(y);
+  qz.push(z);
+}
+
+/** Spread whatever is already in the shared queue. Not re-entrant. */
+function propagateQueued(world: LightVolume, channel: 'sky' | 'block'): void {
   let head = 0;
-  while (head < queue.length) {
-    const item = queue[head++]!;
-    const cell = cellAt(world, item.x, item.y, item.z);
+  while (head < qx.length) {
+    const x = qx[head]!;
+    const y = qy[head]!;
+    const z = qz[head]!;
+    head += 1;
+    const cell = cellAt(world, x, y, z);
     if (!cell) continue;
     const level = readChannel(cell, channel);
     if (level <= 1) continue;
     for (const [dx, dy, dz] of DIRS) {
-      const x = item.x + dx;
-      const y = item.y + dy;
-      const z = item.z + dz;
-      const nextCell = cellAt(world, x, y, z);
+      const nx = x + dx;
+      const ny = y + dy;
+      const nz = z + dz;
+      const nextCell = cellAt(world, nx, ny, nz);
       if (!nextCell) continue;
-      const spread = spreadInto(level, world.getBlock(x, y, z));
+      const spread = spreadInto(level, world.getBlock(nx, ny, nz));
       if (spread > readChannel(nextCell, channel)) {
         writeChannel(nextCell, channel, spread);
-        queue.push({ x, y, z });
+        enqueue(nx, ny, nz);
       }
     }
   }
+}
+
+function propagateAdd(world: LightVolume, channel: 'sky' | 'block', seeds: readonly Pos[]): void {
+  resetQueue();
+  for (const seed of seeds) enqueue(seed.x, seed.y, seed.z);
+  propagateQueued(world, channel);
 }
 
 /** Sunlight falling straight down. Clear blocks do not dim it; opaque blocks stop it. */
@@ -354,12 +391,20 @@ function verticalAt(world: LightVolume, cache: Map<string, Uint8Array>, x: numbe
   return column[y] ?? 0;
 }
 
-function absorbEdge(world: LightVolume, x: number, z: number, skySeeds: Pos[], blockSeeds: Pos[]): void {
+function absorbColumn(world: LightVolume, x: number, z: number, channel: 'sky' | 'block'): void {
   if (!cellAt(world, x, 0, z)) return;
   for (let y = 0; y < CHUNK_Y; y++) {
-    if (skyLightAt(world, x, y, z) > 0) skySeeds.push({ x, y, z });
-    if (blockLightAt(world, x, y, z) > 0) blockSeeds.push({ x, y, z });
+    const level = channel === 'sky' ? skyLightAt(world, x, y, z) : blockLightAt(world, x, y, z);
+    if (level > 0) enqueue(x, y, z);
   }
+}
+
+function absorbSky(world: LightVolume, x: number, z: number): void {
+  absorbColumn(world, x, z, 'sky');
+}
+
+function absorbBlock(world: LightVolume, x: number, z: number): void {
+  absorbColumn(world, x, z, 'block');
 }
 
 function emittedAt(world: LightVolume, x: number, y: number, z: number): number {
