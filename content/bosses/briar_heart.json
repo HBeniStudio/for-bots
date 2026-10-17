@@ -4,22 +4,73 @@
   "kind": "boss",
   "health": 180,
   "speed": 1.1,
-  "size": { "width": 1.8, "height": 2.8, "depth": 1.8 },
+  "size": {
+    "width": 1.8,
+    "height": 2.8,
+    "depth": 1.8
+  },
   "damage": 6,
   "attackRange": 2.2,
   "aggroRange": 18,
   "phases": [
-    { "belowHealth": 0.66, "speed": 1.5, "damage": 9 },
-    { "belowHealth": 0.33, "speed": 2.1, "damage": 12 }
+    {
+      "belowHealth": 0.66,
+      "speed": 1.5,
+      "damage": 9
+    },
+    {
+      "belowHealth": 0.33,
+      "speed": 2.1,
+      "damage": 12
+    }
   ],
   "drops": [
-    { "block": "log", "min": 4, "max": 8, "chance": 1 },
-    { "block": "leaves", "min": 4, "max": 10, "chance": 1 }
+    {
+      "block": "log",
+      "min": 4,
+      "max": 8,
+      "chance": 1
+    },
+    {
+      "block": "leaves",
+      "min": 4,
+      "max": 10,
+      "chance": 1
+    }
   ],
   "spawn": {
-    "biomes": ["forest"],
+    "biomes": [
+      "forest"
+    ],
     "minLight": 0,
     "maxLight": 6,
     "weight": 1
+  },
+  "sprite": {
+    "colors": [
+      "#2f6a38",
+      "#16361c",
+      "#d64555",
+      "#f2d35c",
+      "#6b4428"
+    ],
+    "rows": [
+      "...0.0...0.0....",
+      "..00000.00000...",
+      "..00000000000...",
+      "...000222000....",
+      "..00222222200...",
+      "..02223332220...",
+      "..00222222200...",
+      "...000222000....",
+      "....0044400.....",
+      ".....04440......",
+      ".....04440......",
+      "......444.......",
+      "......4.4.......",
+      ".....4...4......",
+      "................",
+      "................"
+    ]
   }
 }
