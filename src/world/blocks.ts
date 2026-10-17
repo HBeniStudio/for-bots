@@ -10,8 +10,10 @@ export const SNOW = 6;
 export const LOG = 7;
 export const LEAVES = 8;
 export const GRAVEL = 9;
-/** Placeholder light source for M4. The generator does not place it. */
+/** Light source. The generator does not place it. */
 export const TORCH = 10;
+/** Light level stored on a torch. Neighbors fall off by 1 per block. */
+export const TORCH_LIGHT = 14;
 
 /**
  * Stable names for the block ids above. Content JSON may use the name or the
@@ -40,6 +42,23 @@ export type BlockName = keyof typeof BLOCK_IDS;
 export const LIGHT_MIN = 0;
 export const LIGHT_MAX = 15;
 export const LIGHT_SCALE = Object.freeze({ min: LIGHT_MIN, max: LIGHT_MAX } as const);
+
+/** Light a block emits, from {@link LIGHT_MIN} to {@link LIGHT_MAX}. Only torches emit. */
+export function lightEmission(id: number): number {
+  return id === TORCH ? TORCH_LIGHT : 0;
+}
+
+/**
+ * How much vertical sunlight this block absorbs.
+ * 0 is clear, so a skylit air column stays at 15. 15 is opaque.
+ * Water and leaves sit in between and filter the column.
+ */
+export function lightOpacity(id: number): number {
+  if (id === AIR || id === TORCH) return 0;
+  if (id === LEAVES) return 1;
+  if (id === WATER) return 2;
+  return LIGHT_MAX;
+}
 
 export interface FaceColors {
   top: string;

@@ -1,5 +1,6 @@
 import { loadContent } from './content/loader';
 import { CHUNK_X } from './world/chunk';
+import { DAY_LENGTH_SEC, sunlightFactor } from './world/light';
 import { World } from './world/world';
 import { Camera } from './render/camera';
 import { collectDrawList, renderWorld, type DrawnBlock } from './render/renderer';
@@ -34,6 +35,14 @@ function viewChunkRadius(camera: Camera): number {
   return Math.min(8, Math.max(2, Math.ceil(reach / CHUNK_X) + 1));
 }
 
+function dayPhase(timeSec: number): string {
+  const sun = sunlightFactor(timeSec);
+  if (sun >= 0.95) return 'day';
+  if (sun <= 0.05) return 'night';
+  const wrapped = ((timeSec % DAY_LENGTH_SEC) + DAY_LENGTH_SEC) % DAY_LENGTH_SEC;
+  return wrapped < DAY_LENGTH_SEC / 2 ? 'dusk' : 'dawn';
+}
+
 function drawHud(
   ctx: CanvasRenderingContext2D,
   fps: number,
@@ -41,9 +50,10 @@ function drawHud(
   chunksDrawn: number,
   chunksLoaded: number,
   held: string,
+  phase: string,
 ): void {
   ctx.font = '13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-  const line = `${fps.toFixed(0)} fps  ·  ${chunksDrawn}/${chunksLoaded} chunks  ·  zoom ${zoom.toFixed(2)}  ·  ${held}`;
+  const line = `${fps.toFixed(0)} fps  ·  ${chunksDrawn}/${chunksLoaded} chunks  ·  zoom ${zoom.toFixed(2)}  ·  ${phase}  ·  ${held}`;
   const hint = 'WASD move   Space jump   drag look   LMB break   RMB place   1–9 / wheel select   Ctrl+wheel zoom';
   const width = Math.max(ctx.measureText(line).width, ctx.measureText(hint).width);
   ctx.fillStyle = 'rgba(12, 28, 36, 0.55)';
@@ -92,6 +102,7 @@ function main(): void {
   }
 
   let last = performance.now();
+  let timeSec = 0;
   let fps = 0;
   let fpsAccum = 0;
   let fpsFrames = 0;
@@ -107,6 +118,7 @@ function main(): void {
   const frame = (now: number): void => {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+    timeSec += dt;
     const control = input.read();
     if (control.slot !== null) hotbar.select(control.slot);
     if (control.wheel !== 0) hotbar.cycle(control.wheel);
@@ -165,10 +177,10 @@ function main(): void {
         z: player.body.z,
         draw: (drawCtx) => drawPlayer(drawCtx, camera, player),
       },
-    ]);
+    ], timeSec);
     if (target) drawTarget(ctx, camera, target);
     hotbar.draw(ctx, camera.screenW, camera.screenH);
-    drawHud(ctx, fps, camera.zoom, stats.chunksDrawn, stats.chunksLoaded, hotbar.label);
+    drawHud(ctx, fps, camera.zoom, stats.chunksDrawn, stats.chunksLoaded, hotbar.label, dayPhase(timeSec));
 
     fpsAccum += dt;
     fpsFrames += 1;

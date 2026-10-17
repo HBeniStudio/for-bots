@@ -1,10 +1,10 @@
-import { DIRT, FACE_COLORS, GRASS, GRAVEL, LEAVES, LOG, SAND, SNOW, STONE, WATER, type FaceColors } from '../world/blocks';
+import { DIRT, FACE_COLORS, GRASS, LEAVES, LOG, SAND, SNOW, STONE, TORCH, WATER, type FaceColors } from '../world/blocks';
 
 export const SLOT_COUNT = 9;
 
-export const HOTBAR_IDS: readonly number[] = [GRASS, DIRT, STONE, SAND, WATER, SNOW, LOG, LEAVES, GRAVEL];
+export const HOTBAR_IDS: readonly number[] = [GRASS, DIRT, STONE, SAND, WATER, SNOW, LOG, LEAVES, TORCH];
 
-const LABELS = ['Grass', 'Dirt', 'Stone', 'Sand', 'Water', 'Snow', 'Log', 'Leaves', 'Gravel'] as const;
+const LABELS = ['Grass', 'Dirt', 'Stone', 'Sand', 'Water', 'Snow', 'Log', 'Leaves', 'Torch'] as const;
 
 const SLOT = 48;
 const GAP = 6;
